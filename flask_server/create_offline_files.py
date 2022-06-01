@@ -18,7 +18,10 @@ warnings.filterwarnings('ignore')
 def get_all_projected_values(model):
     logits = []
     for i in tqdm(range(model.config.n_layer)):
-        layer_logits = torch.matmul(model.transformer.wte.weight, model.transformer.h[i].mlp.c_proj.weight.T).T
+        print(model.transformer.h[i].mlp.c_proj.weight.shape)
+        print(model.transformer.h[i].attn.c_proj.weight.shape)
+        # layer_logits = torch.matmul(model.transformer.wte.weight, model.transformer.h[i].mlp.c_proj.weight.T).T
+        layer_logits = torch.matmul(model.transformer.wte.weight, model.transformer.h[i].attn.c_proj.weight.T).T
         logits.append(layer_logits)
 
     logits = torch.vstack(logits)
@@ -33,7 +36,8 @@ def create_elastic_search_data(path, model, model_name, tokenizer, top_k):
     d = {}
     inv_d = {}
     cnt = 0
-    total_dims = model.transformer.h[0].mlp.c_proj.weight.size(0)
+    # total_dims = model.transformer.h[0].mlp.c_proj.weight.size(0)
+    total_dims = model.transformer.h[0].attn.c_proj.weight.size(0)
     for i in range(model.config.n_layer):
         for j in range(total_dims):
             d[cnt] = (i, j)
@@ -56,7 +60,8 @@ def create_elastic_search_data(path, model, model_name, tokenizer, top_k):
 def get_all_values(model):
     values = []
     for i in tqdm(range(model.config.n_layer)):
-        layer_logits = model.transformer.h[i].mlp.c_proj.weight
+        # layer_logits = model.transformer.h[i].mlp.c_proj.weight
+        layer_logits = model.transformer.h[i].attn.c_proj.weight
         values.append(layer_logits)
     values = torch.vstack(values)
     return values
@@ -82,7 +87,8 @@ def create_streamlit_data(path_cluster_to_value, path_value_to_cluster, model, m
     d = {}
     inv_d = {}
     cnt = 0
-    total_dims = model.transformer.h[0].mlp.c_proj.weight.size(0)
+    # total_dims = model.transformer.h[0].mlp.c_proj.weight.size(0)
+    total_dims = model.transformer.h[0].attn.c_proj.weight.size(0)
     for i in range(model.config.n_layer):
         for j in range(total_dims):
             d[cnt] = (i, j)

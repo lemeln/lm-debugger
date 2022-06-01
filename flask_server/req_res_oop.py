@@ -68,7 +68,7 @@ class ModelingRequests():
                         self.model.activations_[name] = input[0][:, num_tokens - 1].detach()
                 elif "residual" in name or "embedding" in name:
                     num_tokens = list(input[0].size())[1]  # (batch, sequence, hidden_state)
-                    if name == "layer_residual_" + str(final_layer):
+                    if False: #name == "layer_residual_" + str(final_layer):
                         self.model.activations_[name] = self.model.activations_[
                                                             "intermediate_residual_" + str(final_layer)] + \
                                                         self.model.activations_["mlp_" + str(final_layer)]
@@ -82,15 +82,18 @@ class ModelingRequests():
         self.model.transformer.h[0].ln_1.register_forward_hook(get_activation("input_embedding"))
 
         for i in range(self.model.config.n_layer):
-            if i != 0:
-                self.model.transformer.h[i].ln_1.register_forward_hook(get_activation("layer_residual_" + str(i - 1)))
-            self.model.transformer.h[i].ln_2.register_forward_hook(get_activation("intermediate_residual_" + str(i)))
+            # if i != 0:
+            #     self.model.transformer.h[i].ln_1.register_forward_hook(get_activation("layer_residual_" + str(i - 1)))
+            self.model.transformer.h[i].ln_1.register_forward_hook(get_activation("intermediate_residual_" + str(i)))
+            # self.model.transformer.h[i].ln_2.register_forward_hook(get_activation("intermediate_residual_" + str(i)))
+            self.model.transformer.h[i].ln_2.register_forward_hook(get_activation("layer_residual_" + str(i)))
 
             self.model.transformer.h[i].attn.register_forward_hook(get_activation("attn_" + str(i)))
             self.model.transformer.h[i].mlp.register_forward_hook(get_activation("mlp_" + str(i)))
-            self.model.transformer.h[i].mlp.c_proj.register_forward_hook(get_activation("m_coef_" + str(i)))
+            # self.model.transformer.h[i].mlp.c_proj.register_forward_hook(get_activation("m_coef_" + str(i)))
+            self.model.transformer.h[i].attn.c_proj.register_forward_hook(get_activation("m_coef_" + str(i)))
 
-        self.model.transformer.ln_f.register_forward_hook(get_activation("layer_residual_" + str(final_layer)))
+        # self.model.transformer.ln_f.register_forward_hook(get_activation("layer_residual_" + str(final_layer)))
 
     def get_resid_predictions(self, sentence, start_idx=None, end_idx=None, set_mlp_0=False):
         HIDDEN_SIZE = self.model.config.n_embd
@@ -163,7 +166,8 @@ class ModelingRequests():
             coefs_ = []
             m_coefs = sent_to_hidden_states["m_coef_" + str(LAYER)].squeeze(0).cpu().numpy()
             res_vec = sent_to_hidden_states["layer_residual_" + str(LAYER)].squeeze(0).cpu().numpy()
-            value_norms = torch.linalg.norm(self.model.transformer.h[LAYER].mlp.c_proj.weight.data, dim=1).cpu()
+            # value_norms = torch.linalg.norm(self.model.transformer.h[LAYER].mlp.c_proj.weight.data, dim=1).cpu()
+            value_norms = torch.linalg.norm(self.model.transformer.h[LAYER].attn.c_proj.weight.data, dim=1).cpu()
             scaled_coefs = np.absolute(m_coefs) * value_norms.numpy()
 
             for index, prob in enumerate(scaled_coefs):
